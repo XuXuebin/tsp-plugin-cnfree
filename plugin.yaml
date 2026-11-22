@@ -1,0 +1,45 @@
+# cnfree — 免费兜底行情源 (新浪分钟 K 线 + 腾讯五档盘口)
+# 目标: 在 TickFlow 免费档缺 minute / depth5 / full_minute 时提供零成本替代。
+# 不需要任何 API Key; 只用公开 HTTP 接口。
+# 实测口径 (2026-11-19):
+#   新浪 1 分钟: volume 单位=股 → /100 转手; amount 单位=元; 深度约 5 个交易日 (datalen=1023)
+#   腾讯 qt:     买五/卖五数量单位=手; 成交量单位=手; 成交额字段=元
+
+name: cnfree
+version: 1.1.1
+plugin_api_version: 1
+display_name: "免费兜底 (新浪+腾讯)"
+author: XuXuebin
+homepage: https://github.com/XuXuebin/tsp-plugin-cnfree
+homepage_label: "插件仓库与文档"
+runtime: none
+entry: provider:CnfreeProvider
+check: provider:availability
+datasets: [minute, depth5, full_minute]
+requires_app: '>=0.3.37'
+requires_python: '>=3.11'
+platforms: [any]
+requires: ['httpx>=0.27', 'polars>=1.44,<1.45']
+description: |
+  ## 免费兜底数据源
+
+  面向 TickFlow 免费档缺失的三项能力, 全部走公开 HTTP 接口, **不需要 API Key**:
+
+  | 能力 | 上游 | 口径与限制 |
+  | --- | --- | --- |
+  | 分钟K | 新浪 `CN_MarketDataService.getKLineData` | 1/5/15/30/60 分钟; 约 5 个交易日深度; volume 股 → 手; amount 元; **股票 + ETF** |
+  | 全量分钟 | 同上 | 当日 1 分钟逐标的修复轮; 上游无批量端点, 全市场一轮为千级请求 |
+  | 五档盘口 | 腾讯 `qt.gtimg.cn` | 买卖五档; 数量单位=手; 单请求可批量数十只 |
+
+  **v1.1.0**: 分钟K 扩展到 **ETF** (实测 sh513010 / sz159852 / sh588000 均有 1 分钟线)。
+  此前只服务股票, 导致自选里 ETF 的分时图恒为「该日暂无分钟数据(数据源未提供)」。
+  **v1.1.1**: 五档盘口**保留空档**(价格 0.00 / 量 0)。腾讯对封死涨停的票给的是
+  卖五档全空, 宿主靠 `ask_volumes[0] == 0` 判「涨停真封」—— 之前把空档过滤掉,
+  真封板会退化成「待确认」, 涨停梯队整页都是待确认。
+
+  **边界**: 分钟历史仅约 5 个交易日 (免费源浅历史), 分钟回测仍建议通达信/TickFlow Pro;
+  本源不提供日K/财务/实时快照, 那三项请继续用 TickFlow 或 fuyao。
+
+  源码与文档: https://github.com/XuXuebin/tsp-plugin-cnfree
+usage_notes:
+  - "源码 / 文档 / 问题反馈: https://github.com/XuXuebin/tsp-plugin-cnfree"
